@@ -449,7 +449,11 @@ static int mainthread_scheduler(void)
     /* create a mutex and condition val, used to indicate interrupts occrue */
     ptr_int_mutex = &mutex;
     pthread_mutexattr_init(&mutexattr);
+#ifdef PTHREAD_MUTEX_RECURSIVE
     pthread_mutexattr_settype(&mutexattr, PTHREAD_MUTEX_RECURSIVE);
+#else
+    pthread_mutexattr_settype(&mutexattr, PTHREAD_MUTEX_RECURSIVE_NP);
+#endif
     pthread_mutex_init(ptr_int_mutex, &mutexattr);
 
     /* start timer */

@@ -123,6 +123,7 @@ struct finsh_sysvar* finsh_sysvar_lookup(const char* name)
 
 	for (index = _sysvar_table_begin; index < _sysvar_table_end; index ++)
 	{
+		if (index->name == 0x0) continue;
 		if (strcmp(index->name, name) == 0)
 			return index;
 	}
