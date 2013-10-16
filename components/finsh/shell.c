@@ -259,7 +259,7 @@ rt_bool_t finsh_handle_history(struct finsh_shell* shell, char ch)
 		return RT_TRUE;
 	}
 
-	if ((shell->stat == WAIT_SPEC_KEY))
+	if (shell->stat == WAIT_SPEC_KEY)
 	{
 		if (ch == 0x5b)
 		{
@@ -517,8 +517,10 @@ void finsh_thread_entry(void* parameter)
 			if (shell->line_curpos < shell->line_position)
 			{
 				int i;
-				strcpy(&shell->line[shell->line_curpos + 1],
-						&shell->line[shell->line_curpos]);
+
+				rt_memmove(&shell->line[shell->line_curpos + 1],
+						   &shell->line[shell->line_curpos],
+						   shell->line_position - shell->line_curpos);
 				shell->line[shell->line_curpos] = ch;
 				if (shell->echo_mode)
 					rt_kprintf("%s", &shell->line[shell->line_curpos]);
