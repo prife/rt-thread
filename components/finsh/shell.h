@@ -82,6 +82,7 @@ struct finsh_shell
 
 	char line[FINSH_CMD_SIZE];
 	rt_uint8_t line_position;
+	rt_uint8_t line_curpos;
 
 	rt_device_t device;
 };

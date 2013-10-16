@@ -250,6 +250,8 @@ rt_bool_t finsh_handle_history(struct finsh_shell* shell, char ch)
 	 * handle up and down key
 	 * up key  : 0x1b 0x5b 0x41
 	 * down key: 0x1b 0x5b 0x42
+	 * right key:0x1b 0x5b 0x43
+	 * left key: 0x1b 0x5b 0x44
 	 */
 	if (ch == 0x1b)
 	{
@@ -286,7 +288,7 @@ rt_bool_t finsh_handle_history(struct finsh_shell* shell, char ch)
 			/* copy the history command */
 			memcpy(shell->line, &shell->cmd_history[shell->current_history][0],
 				FINSH_CMD_SIZE);
-			shell->line_position = strlen(shell->line);
+			shell->line_curpos = shell->line_position = strlen(shell->line);
 			shell->use_history = 1;
 		}
 		else if (ch == 0x42) /* down key */
@@ -306,8 +308,28 @@ rt_bool_t finsh_handle_history(struct finsh_shell* shell, char ch)
 
 			memcpy(shell->line, &shell->cmd_history[shell->current_history][0],
 				FINSH_CMD_SIZE);
-			shell->line_position = strlen(shell->line);
+			shell->line_curpos = shell->line_position = strlen(shell->line);
 			shell->use_history = 1;
+		}
+		else if (ch == 0x44) /* left key */
+		{
+			if (shell->line_curpos)
+			{
+				rt_kprintf("\b");
+				shell->line_curpos --;
+			}
+
+			return RT_TRUE;
+		}
+		else if (ch == 0x43) /* right key */
+		{
+			if (shell->line_curpos < shell->line_position)
+			{
+				rt_kprintf("%c", shell->line[shell->line_curpos]);
+				shell->line_curpos ++;
+			}
+
+			return RT_TRUE;
 		}
 
 		if (shell->use_history)
@@ -324,7 +346,7 @@ rt_bool_t finsh_handle_history(struct finsh_shell* shell, char ch)
 			rt_kprintf("\033[2K\r");
 #endif
 			rt_kprintf("%s%s", FINSH_PROMPT, shell->line);
-			return RT_TRUE;;
+			return RT_TRUE;
 		}
 	}
 
@@ -410,22 +432,48 @@ void finsh_thread_entry(void* parameter)
 			/* handle tab key */
 			else if (ch == '\t')
 			{
+				int i;
+				/* move the cursor to the origin position */
+				for (i=0; i<shell->line_curpos; i++)
+					rt_kprintf("\b");
+
 				/* auto complete */
 				finsh_auto_complete(&shell->line[0]);
 				/* re-calculate position */
-				shell->line_position = strlen(shell->line);
+				shell->line_curpos = shell->line_position = strlen(shell->line);
+
 				continue;
 			}
 			/* handle backspace key */
 			else if (ch == 0x7f || ch == 0x08)
 			{
-				if (shell->line_position != 0)
+				/* note that shell->line_curpos >= 0 */
+				if (shell->line_curpos == 0)
+					continue;
+
+				if (shell->line_position > shell->line_curpos)
 				{
-					rt_kprintf("%c %c", ch, ch);
+					int i;
+
+					shell->line[shell->line_position] = ' ';
+					strcpy(&shell->line[shell->line_curpos - 1],
+							&shell->line[shell->line_curpos]);
+
+					rt_kprintf("\b%s", &shell->line[shell->line_curpos-1]);
+
+					/* move the cursor to the origin position */
+					for (i=shell->line_curpos; i<=shell->line_position; i++)
+						rt_kprintf("\b");
 				}
-				if (shell->line_position <= 0) shell->line_position = 0;
-				else shell->line_position --;
+				else
+				{
+					rt_kprintf("\b \b");
+				}
+
+				shell->line_position --;
+				shell->line_curpos --;
 				shell->line[shell->line_position] = 0;
+
 				continue;
 			}
 
@@ -457,7 +505,7 @@ void finsh_thread_entry(void* parameter)
 
 				rt_kprintf(FINSH_PROMPT);
 				memset(shell->line, 0, sizeof(shell->line));
-				shell->line_position = 0;
+				shell->line_curpos = shell->line_position = 0;
 
 				break;
 			}
@@ -466,9 +514,28 @@ void finsh_thread_entry(void* parameter)
 			if (shell->line_position >= FINSH_CMD_SIZE) shell->line_position = 0;
 
 			/* normal character */
-			shell->line[shell->line_position] = ch; ch = 0;
-			if (shell->echo_mode) rt_kprintf("%c", shell->line[shell->line_position]);
+			if (shell->line_curpos < shell->line_position)
+			{
+				int i;
+				strcpy(&shell->line[shell->line_curpos + 1],
+						&shell->line[shell->line_curpos]);
+				shell->line[shell->line_curpos] = ch;
+				if (shell->echo_mode)
+					rt_kprintf("%s", &shell->line[shell->line_curpos]);
+
+				/* move the cursor to new position */
+				for (i=shell->line_curpos; i<shell->line_position; i++)
+					rt_kprintf("\b");
+			}
+			else
+			{
+				shell->line[shell->line_position] = ch;
+				rt_kprintf("%c", ch);
+			}
+
+			ch = 0;
 			shell->line_position ++;
+			shell->line_curpos++;
 			shell->use_history = 0; /* it's a new command */
 		} /* end of device read */
 	}
