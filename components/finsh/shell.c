@@ -78,6 +78,22 @@ char *strdup(const char *s)
 
 #endif
 
+/* copy string in a string, from s to d */
+static char * strcpy_inside(char *str, int s, int d)
+{
+    int len;
+    char * sp, *dp;
+
+    len = strlen(str);
+    RT_ASSERT(d > s);
+    RT_ASSERT(s < len);
+    sp = str + s + len;
+    dp = str + d + len;
+    while (len -- >= 0)
+        *dp-- = *sp--;
+    return str;
+}
+
 #if defined(RT_USING_DFS) && defined(DFS_USING_WORKDIR)
 #include <dfs_posix.h>
 const char* finsh_get_prompt()
@@ -517,8 +533,7 @@ void finsh_thread_entry(void* parameter)
 			if (shell->line_curpos < shell->line_position)
 			{
 				int i;
-				strcpy(&shell->line[shell->line_curpos + 1],
-						&shell->line[shell->line_curpos]);
+				strcpy_inside(shell->line, shell->line_curpos, shell->line_curpos+1);
 				shell->line[shell->line_curpos] = ch;
 				if (shell->echo_mode)
 					rt_kprintf("%s", &shell->line[shell->line_curpos]);
